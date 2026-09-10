@@ -1,0 +1,5 @@
+### Testar busca de todos os produtos
+GET http://localhost:8000/products
+
+### Testar busca por ID 1
+GET http://localhost:8000/products/1
