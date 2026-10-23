@@ -1,47 +1,50 @@
 package br.edu.atitus.currencyapi.services;
 
 import br.edu.atitus.currencyapi.dtos.CurrencyResponse;
+import br.edu.atitus.currencyapi.entities.CurrencyEntity;
 import br.edu.atitus.currencyapi.repositories.CurrencyRepository;
-
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 
 @Service
 public class CurrencyServiceJpa implements CurrencyService {
 
-    private final CurrencyRepository repository;
+    private final CurrencyRepository currencyRepository;
     private final BcbClientService bcbClientService;
 
-    @Value("${server.port:8100}")
-    private String port;
-
-    public CurrencyServiceJpa(CurrencyRepository repository, BcbClientService bcbClientService) {
-        this.repository = repository;
+    public CurrencyServiceJpa(CurrencyRepository currencyRepository, BcbClientService bcbClientService) {
+        this.currencyRepository = currencyRepository;
         this.bcbClientService = bcbClientService;
     }
 
     @Override
-    public CurrencyResponse findBySourceCurrencyAndTargetCurrency(String sourceCurrency, String targetCurrency) throws Exception {
-        Double rate = null;
+    public CurrencyResponse findBySourceCurrencyAndTargetCurrency(Double number, String sourceCurrency, String targetCurrency) {
+        String date = LocalDate.now().minusDays(1).format(DateTimeFormatter.ofPattern("MM-dd-yyyy"));
 
-        // 1. Tenta buscar cotação da API externa do Banco Central
+        Double conversionRate;
         try {
-            var bcbRes = bcbClientService.getCotacaoDia(sourceCurrency, "10-14-2026");
-            if (bcbRes != null && bcbRes.value() != null && !bcbRes.value().isEmpty()) {
-                rate = bcbRes.value().get(0).cotacaoVenda();
-            }
+            conversionRate = bcbClientService.getCotacao(sourceCurrency, date);
         } catch (Exception e) {
-            // Em caso de erro/timeout no BCB, o fluxo cai silenciosamente para o Fallback do banco local abaixo
+            conversionRate = currencyRepository.findBySourceCurrencyAndTargetCurrency(sourceCurrency, targetCurrency)
+                    .map(CurrencyEntity::getConversionRate)
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.NOT_FOUND,
+                            "Moeda não encontrada no BCB nem no banco local"
+                    ));
         }
 
-        // 2. Fallback: se a API do BCB falhar ou não retornar valor, busca do banco de dados local db_currency
-        if (rate == null) {
-            var entity = repository.findBySourceCurrencyAndTargetCurrency(sourceCurrency, targetCurrency)
-                    .orElseThrow(() -> new Exception("Currency not found for source: " + sourceCurrency + " and target: " + targetCurrency));
-            rate = entity.getConversionRate();
-        }
+        Double convertedValue = number * conversionRate;
 
-        String environment = "Currency API running in Port: " + port;
-        return new CurrencyResponse(sourceCurrency, targetCurrency, rate, environment);
+        return new CurrencyResponse(
+                sourceCurrency,
+                targetCurrency,
+                conversionRate,
+                convertedValue,
+                "BCB Integration (Resilience4j + Caffeine)"
+        );
     }
 }
