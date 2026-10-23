@@ -1,35 +1,46 @@
 package br.edu.atitus.currencyapi.controllers;
 
 import br.edu.atitus.currencyapi.dtos.CurrencyResponse;
-import br.edu.atitus.currencyapi.services.CurrencyService;
-import jakarta.persistence.EntityNotFoundException;
+import br.edu.atitus.currencyapi.services.BcbClientService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+
 @RestController
-@RequestMapping("currencies")
+@RequestMapping("/currency-service")
 public class CurrencyController {
 
-    private final CurrencyService service;
+    private final BcbClientService bcbClientService;
 
-    public CurrencyController(CurrencyService service) {
-        this.service = service;
+    public CurrencyController(BcbClientService bcbClientService) {
+        this.bcbClientService = bcbClientService;
     }
 
-    @GetMapping
-    public ResponseEntity<CurrencyResponse> getCurrency(
-            @RequestParam String source,
-            @RequestParam String target) throws  Exception {
-        var currency = service.findBySourceCurrencyAndTargetCurrency(source, target);
-        return ResponseEntity.ok(currency);
-    }
+    @GetMapping("/{number}/{from}/{to}")
+    public ResponseEntity<CurrencyResponse> getConversion(
+            @PathVariable Double number,
+            @PathVariable String from,
+            @PathVariable String to,
+            @RequestParam(required = false) String date
+    ) {
+        // Se não passar data na URL, usa a data de ontem formatada em MM-dd-yyyy (padrão do BCB)
+        if (date == null || date.isBlank()) {
+            date = LocalDate.now().minusDays(1).format(DateTimeFormatter.ofPattern("MM-dd-yyyy"));
+        }
 
-    @ExceptionHandler(EntityNotFoundException.class)
-    public ResponseEntity<String> entityNotFoundExceptionHandler(EntityNotFoundException ex){
-        return ResponseEntity.status(404).body(ex.getMessage());
-    }
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<String> exceptionHandler(Exception ex){
-        return ResponseEntity.status(500).body("Ops!!! Algo deu errado.");
+        Double conversionRate = bcbClientService.getCotacao(from, date);
+        Double convertedValue = number * conversionRate;
+
+        CurrencyResponse response = new CurrencyResponse(
+                from,
+                to,
+                conversionRate,
+                convertedValue,
+                "BCB Integration (Resilience4j + Caffeine)"
+        );
+
+        return ResponseEntity.ok(response);
     }
 }
