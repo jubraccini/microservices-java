@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  auth-api:
+    build: ./auth-api
+    container_name: auth-api
+    ports:
+      - "8081:8081"
+
+  currency-api:
+    build: ./currency-api
+    container_name: currency-api
+    ports:
+      - "8082:8082"
+
+  product-api:
+    build: ./product-api
+    container_name: product-api
+    ports:
+      - "8083:8083"
+
+  gateway-api:
+    build: ./gateway-api
+    container_name: gateway-api
+    ports:
+      - "8080:8080"
+    depends_on:
+      - auth-api
+      - currency-api
+      - product-api
