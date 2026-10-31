@@ -1,5 +1,42 @@
-FROM eclipse-temurin:17-jdk-alpine
+# syntax=docker/dockerfile:1
+
+# =========================================================
+# ETAPA 1: BUILD DA APLICAÇÃO
+# =========================================================
+FROM maven:3.9-eclipse-temurin-25-alpine AS build
+
+WORKDIR /workspace
+
+COPY .mvn/ .mvn/
+COPY mvnw pom.xml ./
+
+RUN chmod +x mvnw
+
+RUN --mount=type=cache,target=/root/.m2 \
+    ./mvnw -B -DskipTests dependency:go-offline
+
+COPY src/ src/
+
+RUN --mount=type=cache,target=/root/.m2 \
+    ./mvnw -B -DskipTests package \
+    && cp target/*.jar /workspace/app.jar
+
+
+# =========================================================
+# ETAPA 2: IMAGEM FINAL DE EXECUÇÃO
+# =========================================================
+FROM eclipse-temurin:25-jre-alpine AS runtime
+
 WORKDIR /app
-COPY target/*.jar app.jar
-EXPOSE 8083
-ENTRYPOINT ["java", "-jar", "app.jar"]
+
+RUN addgroup -S spring \
+    && adduser -S spring -G spring
+
+COPY --from=build --chown=spring:spring \
+    /workspace/app.jar /app/app.jar
+
+USER spring
+
+EXPOSE 8080
+
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]
