@@ -6,11 +6,11 @@ public record ProductResponse(
         String model,
         String description,
         String currency,
-        double price,
+        Double price,
         String image,
 
         String environment,
         String promotionMessage,
         String targetCurrency,
-        double convertedPrice
+        Double convertedPrice
 ) {}

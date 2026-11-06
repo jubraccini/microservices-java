@@ -22,7 +22,6 @@ public class OrderItemEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // ID do produto vindo do product-service
     @Column(nullable = false)
     private Long productId;
 
@@ -30,10 +29,10 @@ public class OrderItemEntity {
     private Integer quantity;
 
     @Column(nullable = false)
-    private double priceAtPurchase; // guarda o preço no momento da compra
+    private Double priceAtPurchase;
 
     @Column(nullable = false)
-    private String currencyAtPurchase; // guarda a moeda no momento da compra
+    private String currencyAtPurchase;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_id")
@@ -41,10 +40,10 @@ public class OrderItemEntity {
     private OrderEntity order;
 
     @Transient
-    private ProductResponse product; // preenchido via chamada REST
+    private ProductResponse product;
 
     @Transient
-    private double convertedPriceAtPruchase;
+    private Double convertedPriceAtPurchase;
 
     public Long getId() {
         return id;
@@ -70,11 +69,11 @@ public class OrderItemEntity {
         this.quantity = quantity;
     }
 
-    public double getPriceAtPurchase() {
+    public Double getPriceAtPurchase() {
         return priceAtPurchase;
     }
 
-    public void setPriceAtPurchase(double priceAtPurchase) {
+    public void setPriceAtPurchase(Double priceAtPurchase) {
         this.priceAtPurchase = priceAtPurchase;
     }
 
@@ -102,13 +101,11 @@ public class OrderItemEntity {
         this.product = product;
     }
 
-    public double getConvertedPriceAtPruchase() {
-        return convertedPriceAtPruchase;
+    public Double getConvertedPriceAtPurchase() {
+        return convertedPriceAtPurchase;
     }
 
-    public void setConvertedPriceAtPruchase(double convertedPriceAtPruchase) {
-        this.convertedPriceAtPruchase = convertedPriceAtPruchase;
+    public void setConvertedPriceAtPurchase(Double convertedPriceAtPurchase) {
+        this.convertedPriceAtPurchase = convertedPriceAtPurchase;
     }
-
-
 }

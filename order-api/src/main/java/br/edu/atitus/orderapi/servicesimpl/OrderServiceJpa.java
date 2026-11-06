@@ -27,26 +27,33 @@ public class OrderServiceJpa implements OrderService {
 
     @Override
     public OrderEntity createOrder(OrderEntity order, Long userId) {
-
         return orderRepository.save(order);
     }
+
     @Override
     public Page<OrderEntity> findOrdersByCustomerId(Long customerId, String targetCurrency, Pageable pageable) {
         Page<OrderEntity> orders = orderRepository.findByCustomerId(customerId, pageable);
 
-
         for (OrderEntity order : orders) {
-            double totalPrice = 0.0;
-            double totalConvertedPrice = 0.0;
+            Double totalPrice = 0.0;
+            Double totalConvertedPrice = 0.0;
 
             for (OrderItemEntity item : order.getItems()) {
                 ProductResponse product = productClient.getProductById(item.getProductId(), targetCurrency);
                 item.setProduct(product);
+
                 totalPrice += item.getPriceAtPurchase() * item.getQuantity();
 
-                CurrencyResponse currencyResponse = currencyClient.getCurrency(item.getCurrencyAtPurchase(), targetCurrency);
-                item.setConvertedPriceAtPruchase(item.getPriceAtPurchase() * currencyResponse.conversionRate());
-                totalConvertedPrice += item.getConvertedPriceAtPruchase() * item.getQuantity();
+                CurrencyResponse currencyResponse = currencyClient.getCurrency(
+                        100.0,
+                        item.getCurrencyAtPurchase(),
+                        targetCurrency
+                );
+
+                Double convertedItemPrice = item.getPriceAtPurchase() * currencyResponse.conversionRate();
+                item.setConvertedPriceAtPurchase(convertedItemPrice);
+
+                totalConvertedPrice += convertedItemPrice * item.getQuantity();
             }
             order.setTotalPrice(totalPrice);
             order.setTotalConvertedPrice(totalConvertedPrice);

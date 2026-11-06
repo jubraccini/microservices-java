@@ -29,16 +29,16 @@ public class OrderEntity {
 
     @Column(nullable = false)
     @JsonIgnore
-    private Long customerId; // ID do cliente logado
+    private Long customerId;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderItemEntity> items;
 
     @Transient
-    private double totalPrice;
+    private Double totalPrice;
 
     @Transient
-    private double totalConvertedPrice;
+    private Double totalConvertedPrice;
 
     public Long getId() {
         return id;
@@ -72,21 +72,19 @@ public class OrderEntity {
         this.items = items;
     }
 
-    public double getTotalPrice() {
+    public Double getTotalPrice() {
         return totalPrice;
     }
 
-    public void setTotalPrice(double totalPrice) {
+    public void setTotalPrice(Double totalPrice) {
         this.totalPrice = totalPrice;
     }
 
-    public double getTotalConvertedPrice() {
+    public Double getTotalConvertedPrice() {
         return totalConvertedPrice;
     }
 
-    public void setTotalConvertedPrice(double totalConvertedPrice) {
+    public void setTotalConvertedPrice(Double totalConvertedPrice) {
         this.totalConvertedPrice = totalConvertedPrice;
     }
-
-
 }
