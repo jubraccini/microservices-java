@@ -31,6 +31,14 @@ consul kv put config/application/management.health.readinessstate.enabled "true"
 consul kv put config/application/management.health.db.enabled "true"
 
 REM ==========================================
+REM Configurações de Observabilidade (Prometheus & Zipkin)
+REM ==========================================
+consul kv put config/application/management.prometheus.metrics.export.enabled "true"
+consul kv put config/application/management.tracing.enabled "true"
+consul kv put config/application/management.tracing.sampling.probability "1.0"
+consul kv put config/application/management.tracing.export.zipkin.endpoint "http://zipkin:9411/api/v2/spans"
+
+REM ==========================================
 REM Configurações do Retry e Circuit Breaker (product-api -> currency-api)
 REM ==========================================
 consul kv put config/product-api/resilience4j.retry.instances.currency-api.max-attempts "3"
@@ -81,10 +89,6 @@ consul kv put config/auth-api/server.port "8200"
 consul kv put config/auth-api/spring.datasource.url "jdbc:postgresql://localhost/db_user"
 consul kv put config/auth-api/spring.datasource.username "postgres"
 consul kv put config/auth-api/spring.datasource.password "postgres"
-
-echo.
-echo Consul iniciado e configuracoes carregadas!
-pause
 
 echo.
 echo Consul iniciado e configuracoes carregadas!
