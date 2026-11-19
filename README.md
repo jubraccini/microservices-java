@@ -1,36 +1,13 @@
-# microservices-java
+# Microservices E-Commerce Back-End
 
 ![Java](https://img.shields.io/badge/Java-21-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)
-![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.x-6DB33F?style=for-the-badge&logo=spring-boot&logoColor=white)
-![Spring Cloud](https://img.shields.io/badge/Spring_Cloud-Gateway_%7C_OpenFeign-6DB33F?style=for-the-badge&logo=spring&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-316192?style=for-the-badge&logo=postgresql&logoColor=white)
-![Redis](https://img.shields.io/badge/Redis-Cache-DC382D?style=for-the-badge&logo=redis&logoColor=white)
-![Consul](https://img.shields.io/badge/HashiCorp_Consul-Service_Discovery-F24C53?style=for-the-badge&logo=consul&logoColor=white)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot-3-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)
+![Spring Cloud](https://img.shields.io/badge/Spring_Cloud-Gateway_%7C_Consul-6DB33F?style=for-the-badge&logo=spring&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database_per_Service-316192?style=for-the-badge&logo=postgresql&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)
-![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)
+![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)
 
-> Arquitetura de microsserviços back-end desacoplada, resiliente e observável para o domínio de e-commerce, construída com **Java 21**, **Spring Boot 3** e orquestrada integralmente via **Docker Compose**.
-
----
-
-## Índice
-
-- [Visão Geral](#-visão-geral)
-- [Arquitetura do Sistema](#-arquitetura-do-sistema)
-- [Microsserviços e Infraestrutura](#-microsserviços-e-infraestrutura)
-- [Padrões Arquiteturais Aplicados](#-padrões-arquiteturais-aplicados)
-- [Pré-requisitos](#-pré-requisitos)
-- [Como Executar](#-como-executar)
-- [Fluxo de Autenticação e Endpoints](#-fluxo-de-autenticação-e-endpoints)
-- [Observabilidade e Monitoramento](#-observabilidade-e-monitoramento)
-- [Estrutura do Repositório](#-estrutura-do-repositório)
-- [Licença](#-licença)
-
----
-
-## Visão Geral
-
-Este projeto implementa um ecossistema distribuído back-end seguindo os princípios da metodologia **Twelve-Factor App**. Em vez de uma base monolítica acoplada, cada domínio de negócio opera de forma autônoma, com persistência exclusiva, registro dinâmico de instâncias, roteamento centralizado, segurança *stateless* via JWT e rastreamento distribuído ponta a ponta.
+Arquitetura de microsserviços distribuídos voltada para o domínio de e-commerce, desenvolvida com **Java 21** e **Spring Boot 3**. O ecossistema aplica boas práticas de sistemas distribuídos, incluindo roteamento dinâmico via API Gateway, registro e descoberta de serviços com HashiCorp Consul, isolamento de persistência (*Database per Service*), autenticação stateless com JWT, resiliência com Resilience4j e observabilidade centralizada.
 
 ---
 
@@ -38,78 +15,50 @@ Este projeto implementa um ecossistema distribuído back-end seguindo os princí
 
 ```mermaid
 flowchart TD
-    Client([Cliente / cURL / Postman]) -->|HTTP :8080| Gateway[Spring Cloud API Gateway]
+    Client([Cliente / API Consumer]) --> Gateway[Spring Cloud API Gateway :8080]
+    Gateway <--> Consul[(HashiCorp Consul :8500)]
 
-    Gateway <-->|Service Discovery & Health Check| Consul[HashiCorp Consul :8500]
+    Gateway --> Auth[auth-api]
+    Gateway --> Product[product-api]
+    Gateway --> Order[order-api]
+    Gateway --> Currency[currency-api]
 
-    Gateway -->|/auth/**| Auth[auth-api]
-    Gateway -->|/products/**| Product[product-api]
-    Gateway -->|/orders/**| Order[order-api]
-    Gateway -->|/currency/**| Currency[currency-api]
+    Order -. OpenFeign .-> Product
+    Order -. OpenFeign .-> Currency
 
-    Order -->|OpenFeign + Resilience4j| Product
-    Order -->|OpenFeign + Resilience4j| Currency
+    Auth --> DBAuth[(PostgreSQL - Auth)]
+    Product --> DBProd[(PostgreSQL - Product)]
+    Order --> DBOrder[(PostgreSQL - Order)]
+    Currency --> Cache[(Caffeine / Redis Cache)]
 
-    Auth --> DB_Auth[(PostgreSQL - Auth)]
-    Product --> DB_Prod[(PostgreSQL - Product)]
-    Order --> DB_Order[(PostgreSQL - Order)]
-    Currency --> Redis[(Redis Cache)]
-
-    subgraph Observabilidade
-        Zipkin[Zipkin Tracing :9411]
-        Prometheus[Prometheus Metrics :9090]
-        Loki[Grafana Loki / Alloy]
-    end
-
-    Gateway -.-> Observabilidade
-    Auth -.-> Observabilidade
-    Product -.-> Observabilidade
-    Order -.-> Observabilidade
-    Currency -.-> Observabilidade
+    Gateway -. Traces .-> Zipkin[Zipkin :9411]
+    Gateway -. Metrics .-> Prometheus[Prometheus :9090]
+    Gateway -. Logs .-> Loki[Grafana Loki / Alloy]
 ```
 
 ---
 
-## Microsserviços e Infraestrutura
+## Microsserviços e Componentes
 
-| Serviço / Componente | Responsabilidade | Persistência / Tecnologia | Porta Padrão |
-| :--- | :--- | :--- | :--- |
-| **`api-gateway`** | Ponto único de entrada (*Single Entry Point*), validação de tokens JWT e roteamento dinâmico | Spring Cloud Gateway | `8080` |
-| **`auth-api`** | Gestão de usuários, credenciais e emissão de tokens JWT (RFC 7519) | PostgreSQL + Flyway | Dinâmica (via Consul) |
-| **`product-api`** | Catálogo de produtos, categorias e controle de estoque | PostgreSQL + Flyway | Dinâmica (via Consul) |
-| **`order-api`** | Processamento de pedidos, validação de estoque e conversão de valores | PostgreSQL + Flyway | Dinâmica (via Consul) |
-| **`currency-api`** | Cotações e conversões monetárias em tempo real | Redis (Cache em memória) | Dinâmica (via Consul) |
-| **`consul`** | Registro e descoberta dinâmica de serviços (*Service Discovery*) | HashiCorp Consul | `8500` |
-| **`zipkin`** | Rastreamento distribuído de requisições (*Distributed Tracing*) | Micrometer Tracing + Zipkin | `9411` |
-| **`prometheus`** | Coleta de métricas de saúde e desempenho (`/actuator/prometheus`) | Prometheus | `9090` |
-| **`loki` & `alloy`** | Agregação e consulta centralizada de logs dos containers | Grafana Loki + Grafana Alloy | `3100` |
+| Serviço / Componente | Responsabilidade | Tecnologias Principais |
+| :--- | :--- | :--- |
+| **`api-gateway`** | Ponto único de entrada, roteamento dinâmico, validação de JWT e propagação de contexto (`X-User-*`) | Spring Cloud Gateway, JWT |
+| **`auth-api`** | Cadastro de usuários, autenticação e emissão de tokens JWT | Spring Security, PostgreSQL, Flyway |
+| **`product-api`** | Gestão de catálogo de produtos, paginação e controle de acesso administrativo | Spring Data JPA, PostgreSQL, Flyway |
+| **`order-api`** | Processamento de pedidos, comunicação síncrona entre serviços e conversão cambial | Spring Cloud OpenFeign, PostgreSQL |
+| **`currency-api`** | Conversão monetária e consulta de cotações em tempo real (BCB) com cache e fallback | Resilience4j, Caffeine, OpenFeign |
+| **Service Discovery** | Registro automático de instâncias e monitoramento de Health Checks | HashiCorp Consul |
+| **Observabilidade** | Rastreamento distribuído, coleta de métricas e agregação de logs | Zipkin, Prometheus, Grafana Loki & Alloy |
 
 ---
 
-## Padrões Arquiteturais Aplicados
+## Como Executar o Projeto
 
-- **Database per Service:** Isolamento total da camada de dados; nenhum microsserviço acessa diretamente o banco de outro domínio.
-- **Migrations Automatizadas:** Versionamento de esquema relacional controlado pelo **Flyway** na inicialização de cada API.
-- **Client-Side Load Balancing & Service Discovery:** Registro automático no **HashiCorp Consul** com *Health Checks* ativos.
-- **Resiliência e Tolerância a Falhas:** Comunicação síncrona via **Spring Cloud OpenFeign** protegida por *Circuit Breakers* e *Fallbacks* com **Resilience4j**.
-- **Segurança Stateless (JWT):** Validação centralizada no Gateway com propagação segura de contexto (`X-User-Id`, `X-User-Roles`) para os serviços internos.
-- **Tratamento Padronizado de Erros:** Exceções mapeadas globalmente via `@ControllerAdvice` seguindo a especificação **RFC 7807 (Problem Details)**.
-- **Multi-Stage Docker Builds:** Imagens enxutas baseadas em `OpenJDK 21 JRE` para otimização de memória e tempo de subida.
+### Pré-requisitos
+- **Docker** e **Docker Compose** instalados
+- **Java 21** e **Maven** (opcional, caso deseje compilar localmente fora dos containers)
 
----
-
-## Pré-requisitos
-
-Certifique-se de ter instalados em sua máquina:
-
-- [Docker](https://docs.docker.com/get-docker/) (`v24+`)
-- [Docker Compose](https://docs.docker.com/compose/) (`v2.20+`)
-- [Git](https://git-scm.com/)
-- *(Opcional, para build local)* Java 21 (JDK) e Maven 3.9+
-
----
-
-## Como Executar
+### Passo a Passo
 
 1. **Clone o repositório:**
    ```bash
@@ -119,96 +68,75 @@ Certifique-se de ter instalados em sua máquina:
 
 2. **Suba toda a infraestrutura e os microsserviços:**
    ```bash
-   docker compose up --build -d
+   docker compose up -d --build
    ```
 
-3. **Acompanhe a inicialização e os Health Checks:**
+3. **Aguarde a inicialização:**
+   Todos os serviços se registrarão automaticamente no Consul. Você pode acompanhar o status dos containers com:
    ```bash
    docker compose ps
-   ```
-   Aguarde cerca de 30–45 segundos até que todas as APIs concluam as migrações do Flyway e apareçam como saudáveis (`passing`) no painel do Consul em `http://localhost:8500`.
-
-
-4. **Para encerrar e remover os containers:**
-   ```bash
-   docker compose down -v
    ```
 
 ---
 
-## Fluxo de Autenticação e Endpoints
+## Endpoints da API
 
-Todas as requisições externas devem passar exclusivamente pelo **API Gateway (`http://localhost:8080`)**.
+Todas as requisições externas entram pelo **API Gateway (`http://localhost:8080`)**.  
+Rotas sob `/ws/**` exigem `Authorization: Bearer <token>`, através do qual o Gateway valida o JWT e propaga os metadados do usuário (`X-User-Id`, `X-User-Email`, `X-User-Type`).
 
-### 1. Registrar um novo usuário (`auth-api`)
+| Serviço | Método | Rota | Autenticação | Descrição |
+| :--- | :--- | :--- | :--- | :--- |
+| **`auth-api`** | `POST` | `/auth/signup` | Pública | Cadastra um novo usuário (`Common`) |
+| **`auth-api`** | `POST` | `/auth/signin` | Pública | Autentica o usuário e retorna o Token JWT |
+| **`product-api`** | `GET` | `/products` | Pública | Lista produtos paginados (`?page=0&size=10`) |
+| **`product-api`** | `GET` | `/products/{id}` | Pública | Busca detalhes de um produto pelo ID |
+| **`product-api`** | `POST` | `/ws/products` | JWT (`Admin` / Type `0`) | Cadastra um novo produto no catálogo |
+| **`currency-api`** | `GET` | `/currency-service/{number}/{from}/{to}` | Pública | Converte valores via cotação do BCB (`?date=MM-dd-yyyy` opcional) |
+| **`order-api`** | `POST` | `/ws/orders` | JWT (Autenticado) | Cria um pedido buscando preços via Feign no `product-api` |
+| **`order-api`** | `GET` | `/ws/orders?targetCurrency=BRL` | JWT (Autenticado) | Lista pedidos do usuário com conversão cambial |
+
+### Exemplos Rápidos (`cURL`)
+
 ```bash
-curl -X POST http://localhost:8080/auth/register \
+# 1. Autenticar e obter o Token JWT
+curl -X POST http://localhost:8080/auth/signin \
   -H "Content-Type: application/json" \
-  -d '{
-    "name": "Julia Braccini",
-    "email": "julia@exemplo.com",
-    "password": "SenhaForte@123"
-  }'
-```
+  -d '{"email": "julia@exemplo.com", "password": "SenhaForte@123"}'
 
-### 2. Autenticar e obter o Token JWT (`auth-api`)
-```bash
-curl -X POST http://localhost:8080/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "julia@exemplo.com",
-    "password": "SenhaForte@123"
-  }'
-```
+# 2. Listar catálogo de produtos
+curl -X GET "http://localhost:8080/products?page=0&size=10"
 
-### 3. Consultar produtos autenticados (`product-api`)
-```bash
-curl -X GET http://localhost:8080/products \
-  -H "Authorization: Bearer <SEU_TOKEN_JWT>"
-```
-
-### 4. Criar pedido com conversão cambial (`order-api` $\rightarrow$ `product-api` + `currency-api`)
-```bash
-curl -X POST http://localhost:8080/orders \
+# 3. Criar um novo pedido (substitua pelo token JWT obtido no login)
+curl -X POST http://localhost:8080/ws/orders \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <SEU_TOKEN_JWT>" \
-  -d '{
-    "items": [
-      { "productId": 1, "quantity": 2 }
-    ],
-    "targetCurrency": "BRL"
-  }'
+  -d '{"items": [{"productId": 1, "quantity": 2}]}'
 ```
 
 ---
 
 ## Observabilidade e Monitoramento
 
-Após subir o ambiente, acesse os painéis de telemetria localmente:
+Com os containers em execução, os painéis de acompanhamento ficam disponíveis nos seguintes endereços:
 
-- **HashiCorp Consul (Service Registry):** [http://localhost:8500](http://localhost:8500)
-- **Zipkin (Distributed Tracing):** [http://localhost:9411](http://localhost:9411)
-- **Prometheus (Métricas):** [http://localhost:9090](http://localhost:9090)
+- **HashiCorp Consul (Service Discovery):** http://localhost:8500
+- **Zipkin (Distributed Tracing):** http://localhost:9411
+- **Prometheus (Métricas):** http://localhost:9090
 
 ---
 
-## Estrutura do Repositório
+## Boas Práticas Aplicadas
 
-```text
-├── api-gateway/          # Roteamento, filtros JWT e integração com Consul
-├── auth-api/             # Autenticação, emissão de tokens e gestão de usuários
-├── currency-api/         # Conversão monetária e cache distribuído com Redis
-├── order-api/            # Orquestração de pedidos via OpenFeign + Resilience4j
-├── product-api/          # Catálogo de produtos e controle de estoque
-├── observability/        # Configurações de Prometheus, Loki e Grafana Alloy
-└── docker-compose.yml    # Orquestração completa da rede, bancos e serviços
-```
+- **Database per Service:** Bancos isolados por domínio, evitando acoplamento na camada de dados.
+- **Resiliência:** Uso de Circuit Breaker e Fallbacks no consumo de cotações externas.
+- **Tratamento Padronizado de Erros:** Exceções mapeadas globalmente via `@ControllerAdvice` (RFC 7807).
+- **Multi-stage Docker Builds:** Imagens enxutas baseadas em OpenJDK 21 JRE.
 
 ---
 
 ## Licença
 
-Este projeto está sob a licença **MIT**. Consulte o arquivo [LICENSE](LICENSE) para obter mais detalhes.
+Este projeto está sob a licença **MIT**. Consulte o arquivo [LICENSE](LICENSE) para mais detalhes.
 
 ---
 
