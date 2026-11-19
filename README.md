@@ -11,6 +11,18 @@ Arquitetura de microsserviços distribuídos voltada para o domínio de e-commer
 
 ---
 
+## Índice
+
+- [Arquitetura do Sistema](#arquitetura-do-sistema)
+- [Microsserviços e Componentes](#microsserviços-e-componentes)
+- [Como Executar o Projeto](#como-executar-o-projeto)
+- [Endpoints da API](#endpoints-da-api)
+- [Observabilidade e Monitoramento](#observabilidade-e-monitoramento)
+- [Boas Práticas Aplicadas](#boas-práticas-aplicadas)
+- [Licença](#licença)
+
+---
+
 ## Arquitetura do Sistema
 
 ```mermaid
